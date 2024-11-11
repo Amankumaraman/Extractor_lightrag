@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd"><key id="d2" for="node" attr.name="source_id" attr.type="string"/>
+<key id="d1" for="node" attr.name="description" attr.type="string"/>
+<key id="d0" for="node" attr.name="entity_type" attr.type="string"/>
+<graph edgedefault="undirected"><node id="&quot;TEXT&quot;">
+  <data key="d0">"EVENT"</data>
+  <data key="d1">"The term 'text' refers to the written content being analyzed for entities and relationships, serving as the focal point for this task."</data>
+  <data key="d2">chunk-1cb251ec0d568de6a929b520c4aed8d1</data>
+</node>
+<node id="&quot;METADATA&quot;">
+  <data key="d0">"ORGANIZATION"</data>
+  <data key="d1">"Metadata refers to a structured data that provides information about other data, which is crucial for data management and organization in various contexts."</data>
+  <data key="d2">chunk-9f81f3c07476a0d97f6793673dd8e475</data>
+</node>
+<node id="&quot;DATA&quot;">
+  <data key="d0">"CONCEPT"</data>
+  <data key="d1">"Data refers to factual information used as a basis for reasoning, discussion, or calculation, essential for analysis and decision-making."</data>
+  <data key="d2">chunk-9f81f3c07476a0d97f6793673dd8e475</data>
+</node>
+<node id="&quot;MANAGEMENT&quot;">
+  <data key="d0">"CONCEPT"</data>
+  <data key="d1">"Management is the process of dealing with or controlling things or people, especially in guiding an organization towards its goals."</data>
+  <data key="d2">chunk-9f81f3c07476a0d97f6793673dd8e475</data>
+</node>
+<node id="&quot;ORGANIZATION&quot;">
+  <data key="d0">"CONCEPT"</data>
+  <data key="d1">"Organization refers to the arrangement and coordination of activities and resources within a group to achieve specific objectives."</data>
+  <data key="d2">chunk-9f81f3c07476a0d97f6793673dd8e475</data>
+</node>
+<node id="&quot;INFORMATION&quot;">
+  <data key="d0">"CONCEPT"</data>
+  <data key="d1">"Information is data that is processed or organized in a way that provides meaning and context, crucial for communication and decision-making."</data>
+  <data key="d2">chunk-9f81f3c07476a0d97f6793673dd8e475</data>
+</node>
+<node id="&quot;STRUCTURE&quot;">
+  <data key="d0">"CONCEPT"</data>
+  <data key="d1">"Structure refers to the arrangement or organization of parts to form a whole, especially in reference to systems, organizations, or data."</data>
+  <data key="d2">chunk-9f81f3c07476a0d97f6793673dd8e475</data>
+</node>
+</graph></graphml>
