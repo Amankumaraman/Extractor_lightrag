@@ -7,194 +7,142 @@ from pdf2image import convert_from_path
 import re
 import PyPDF2
 from lightrag import LightRAG, QueryParam
-from lightrag.llm import gpt_4o_mini_complete 
+from lightrag.llm import gpt_4o_mini_complete
 from dotenv import load_dotenv
 from PIL import Image, ImageEnhance, ImageFilter
 import csv
 
-
+# Load environment variables
 load_dotenv()
-
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# Logging configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize LightRAG
 WORKING_DIR = "./lightrag_index"
-if not os.path.exists(WORKING_DIR):
-    os.mkdir(WORKING_DIR)
+os.makedirs(WORKING_DIR, exist_ok=True)
 
 lightrag = LightRAG(
     working_dir=WORKING_DIR,
-    llm_model_func=gpt_4o_mini_complete  
+    llm_model_func=gpt_4o_mini_complete
 )
 
+# Image processing for OCR
 def preprocess_image(image):
-    image = image.convert("L") 
-    enhancer = ImageEnhance.Contrast(image)
-    image = enhancer.enhance(2.0)  
-    image = image.filter(ImageFilter.SHARPEN) 
-    return image
+    image = image.convert("L")  # Convert to grayscale
+    image = ImageEnhance.Contrast(image).enhance(2.0)  # Enhance contrast
+    return image.filter(ImageFilter.SHARPEN)  # Sharpen image
 
-def extract_text_from_pdf(pdf_path):
+# Extract text from scanned PDFs using OCR
+def extract_text_from_scanned_pdf(pdf_path):
     try:
-        logger.info(f"Extracting text from PDF: {pdf_path}")
+        logger.info(f"Processing scanned PDF: {pdf_path}")
         images = convert_from_path(pdf_path)
-        text = ""
-        for image in images:
-            preprocessed_image = preprocess_image(image)
-            text += pytesseract.image_to_string(preprocessed_image)
-        logger.info("Text extraction successful.")
+        text = ''.join(pytesseract.image_to_string(preprocess_image(image)) for image in images)
+        logger.info("OCR completed.")
         return text.strip()
     except Exception as e:
-        logger.error(f"Error extracting text from PDF: {str(e)}")
+        logger.error(f"Error extracting text from scanned PDF: {e}")
         return ""
 
-def extract_text_from_pdf_text_based(pdf_path):
+# Extract text from text-based PDFs
+def extract_text_from_text_pdf(pdf_path):
     try:
-        logger.info(f"Extracting text from text-based PDF: {pdf_path}")
+        logger.info(f"Processing text-based PDF: {pdf_path}")
         with open(pdf_path, "rb") as file:
             reader = PyPDF2.PdfReader(file)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text()
-        logger.info("Text extraction successful.")
-        return text.strip()
+            return ''.join(page.extract_text() for page in reader.pages).strip()
     except Exception as e:
-        logger.error(f"Error extracting text from text-based PDF: {str(e)}")
+        logger.error(f"Error extracting text from text-based PDF: {e}")
         return ""
 
-def parse_items_from_text(extracted_text):
-    items = []
-    lines = extracted_text.split("\n")
-    
-
-    pattern = re.compile(r"([a-zA-Z\s]+)\s*(\d+)\s*(\d+\.\d{2})|([a-zA-Z\s]+)\s*(\d+\.\d{2})")
-    
-    for line in lines:
-        match = pattern.search(line)
-        if match:
-            item_name = match.group(1).strip() if match.group(1) else match.group(4).strip()
-            quantity = match.group(2) if match.group(2) else "1"  
-            price = match.group(3) if match.group(3) else match.group(5)
-            items.append({"item_name": item_name, "quantity": quantity, "price": price})
-    return items
-
-def classify_items_with_openai(extracted_text):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4", 
-            messages=[ 
-                {"role": "system", "content": "You are a helpful assistant that classifies items into medical and non-medical categories."},
-                {"role": "user", "content": f"Classify the following items as medical or non-medical:\n{extracted_text}"}
-            ]
-        )
-        classified_items_text = response['choices'][0]['message']['content']
-        
-
-        classified_items = []
-        for line in classified_items_text.split("\n"):
-            parts = line.split("-")
-            if len(parts) == 2:
-                item_name = parts[0].strip()
-                category = parts[1].strip()
-                classified_items.append({"item_name": item_name, "category": category})
-
-        logger.info("Classification successful.")
-        return classified_items
-    except Exception as e:
-        logger.error(f"Error classifying items: {str(e)}")
-        return []
-
-def store_items_in_lightrag(items):
-    for item in items:
-        lightrag.insert({"text": item["item_name"], "metadata": {"quantity": item["quantity"], "price": item["price"]}})
-    logger.info("Items stored in LightRAG index.")
-
-def retrieve_related_information(query):
-    response = lightrag.query(query, param=QueryParam(mode="global"))
-    return response
-
-def process_pdf_and_classify(pdf_path):
-
-    if pdf_path.endswith(".pdf"):
-        extracted_text = extract_text_from_pdf(pdf_path) if is_scanned_pdf(pdf_path) else extract_text_from_pdf_text_based(pdf_path)
-    else:
-        logger.error("Unsupported file type.")
-        return json.dumps({"status": "error", "message": "Unsupported file type"}, indent=4)
-    
-    if not extracted_text:
-        logger.error("No text extracted from the PDF.")
-        return json.dumps({"status": "error", "message": "No text extracted from the PDF"}, indent=4)
-
-    items = parse_items_from_text(extracted_text)
-
-    store_items_in_lightrag(items)
-
-    classified_items = classify_items_with_openai(extracted_text)
-
-    result = {
-        "status": "success",
-        "extracted_text": extracted_text,
-        "classified_items": classified_items,
-        "items": items 
-    }
-
-    related_info = retrieve_related_information("medical items")
-    result["related_info"] = related_info
-    
-    return json.dumps(result, indent=4)
-
+# Detect whether a PDF is scanned
 def is_scanned_pdf(pdf_path):
     try:
-        images = convert_from_path(pdf_path)
-        if images:
-            return True
-        return False
+        return bool(convert_from_path(pdf_path))
     except Exception:
         return False
-    
+
+# Parse items from extracted text
+def parse_items(extracted_text):
+    pattern = re.compile(r"([a-zA-Z\s]+)\s*(\d+)?\s*(\d+\.\d{2})")
+    items = []
+    for line in extracted_text.split("\n"):
+        match = pattern.search(line)
+        if match:
+            items.append({
+                "item_name": match.group(1).strip(),
+                "quantity": match.group(2) or "1",  # Default to 1 if missing
+                "price": match.group(3)
+            })
+    return items
+
+# Classify items using OpenAI
+def classify_items_with_openai(items):
+    try:
+        prompt = "\n".join(f"{item['item_name']} - Quantity: {item['quantity']}, Price: {item['price']}" for item in items)
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Classify the following items as medical or non-medical."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        classifications = response['choices'][0]['message']['content'].strip()
+        return [{"item": line.split("-")[0].strip(), "category": line.split("-")[1].strip()} 
+                for line in classifications.split("\n") if "-" in line]
+    except Exception as e:
+        logger.error(f"Error classifying items: {e}")
+        return []
+
+# Write extracted items to CSV
 def write_items_to_csv(items, filename="extracted_items.csv"):
     try:
-        with open(filename, mode="w", newline="") as file:
+        with open(filename, "w", newline="") as file:
             writer = csv.DictWriter(file, fieldnames=["item_name", "quantity", "price"])
             writer.writeheader()
             writer.writerows(items)
-        logger.info(f"Extracted items successfully written to {filename}")
+        logger.info(f"Items written to {filename}.")
     except Exception as e:
-        logger.error(f"Error writing items to CSV: {str(e)}")
+        logger.error(f"Error writing to CSV: {e}")
 
-def process_pdf_and_classify(pdf_path):
-    if pdf_path.endswith(".pdf"):
-        extracted_text = extract_text_from_pdf(pdf_path) if is_scanned_pdf(pdf_path) else extract_text_from_pdf_text_based(pdf_path)
-    else:
+# Main processing function
+def process_pdf(pdf_path):
+    if not pdf_path.endswith(".pdf"):
         logger.error("Unsupported file type.")
-        return json.dumps({"status": "error", "message": "Unsupported file type"}, indent=4)
+        return {"status": "error", "message": "Unsupported file type"}
+
+    extracted_text = (extract_text_from_scanned_pdf(pdf_path) 
+                      if is_scanned_pdf(pdf_path) 
+                      else extract_text_from_text_pdf(pdf_path))
     
     if not extracted_text:
-        logger.error("No text extracted from the PDF.")
-        return json.dumps({"status": "error", "message": "No text extracted from the PDF"}, indent=4)
+        logger.error("No text extracted.")
+        return {"status": "error", "message": "No text extracted"}
 
-    items = parse_items_from_text(extracted_text)
-
+    items = parse_items(extracted_text)
     write_items_to_csv(items)
     store_items_in_lightrag(items)
-
-    classified_items = classify_items_with_openai(extracted_text)
-
-    result = {
+    
+    classified_items = classify_items_with_openai(items)
+    return {
         "status": "success",
-        "extracted_text": extracted_text,
-        "classified_items": classified_items,
-        "items": items 
+        "parsed_items": items,
     }
 
-    related_info = retrieve_related_information("medical items")
-    result["related_info"] = related_info
-    
-    return json.dumps(result, indent=4)
+# Store parsed items in LightRAG
+def store_items_in_lightrag(items):
+    try:
+        for item in items:
+            lightrag.insert({"text": item["item_name"], "metadata": {"quantity": item["quantity"], "price": item["price"]}})
+        logger.info("Items stored in LightRAG.")
+    except Exception as e:
+        logger.error(f"Error storing items in LightRAG: {e}")
 
-
+# Main execution
 if __name__ == "__main__":
-    pdf_path = r"C:\Users\amank\OneDrive\Desktop\Appp\LightRAG\bill_of_items.pdf" 
-    result_json = process_pdf_and_classify(pdf_path)
-    print(result_json)
+    pdf_path = r"C:\Users\amank\OneDrive\Desktop\Appp\LightRAG\bill_of_items.pdf"  
+    result = process_pdf(pdf_path)
+    print(json.dumps(result, indent=4))
